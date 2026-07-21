@@ -26,6 +26,12 @@
         </p>
     {{ end }}
 
+    {{/* Tag links give the taxonomy pages an inbound path; without them
+         /tags/* pages exist but nothing on the site reaches them. */}}
+    {{ with .GetTerms "tags" }}
+        <p class="aside__tags">{{ range . }}<a href="{{ .RelPermalink }}">#{{ .LinkTitle }}</a> {{ end }}</p>
+    {{ end }}
+
     {{ if and (.Params.toc) (.TableOfContents) }}
 	    <hr>
 	    On this page:

@@ -1,9 +1,15 @@
 <title>{{ with .Title }}{{ . }} &ndash; {{end}}{{ .Site.Title }}</title>
-{{ with .Site.Params.about }}<meta name="description" content="{{ .description }}">{{ end }}
+{{/* Search snippets and link previews should describe the page, not the site.
+     Fall back: explicit front-matter description -> the page's summary
+     (manual, or Hugo's auto-derived one) -> the site-wide blurb. */}}
+{{- $about := default dict .Site.Params.about }}
+{{- $desc := or .Description (.Summary | plainify | chomp) $about.description "" | truncate 300 }}
+<meta name="description" content="{{ $desc }}">
+<link rel="canonical" href="{{ .Permalink }}">
 
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta charset="UTF-8"/>
-{{ if .Site.Params.noindex }}<meta name="robots" content="noindex" /> {{ end }}
+{{ if or .Site.Params.noindex .Params.noindex }}<meta name="robots" content="noindex" /> {{ end }}
 
 <!-- FontAwesome <https://fontawesome.com/> -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -28,16 +34,19 @@
   {{ printf `<link rel=%q type=%q href=%q title=%q>` .Rel .MediaType.Type .Permalink site.Title | safeHTML }}
 {{ end }}
 
-<!-- OG meta properties -->
+<!-- OG / social meta -->
+{{/* A dated leaf page is an article; everything else (home, sections, terms,
+     dateless utility pages) is just part of the site. */}}
+{{- $isPost := and .IsPage (not .Date.IsZero) }}
+<meta property="og:site_name" content="{{ .Site.Title }}" />
 <meta property="og:title" content="{{ with .Title }}{{ . }} &ndash; {{end}}{{ .Site.Title }}" />
 <meta property="og:url" content="{{ .Page.Permalink }}" />
-{{ if isset .Params "description" }}
-  <meta property="og:description" content="{{ with .Params.description }}{{ . }} &ndash; {{end}}"/> 
-{{ else }}
-  {{ with .Site.Params.about }}
-    <meta property="og:description" content="{{ .description }}"/> 
-  {{ end }}
-{{ end }}
+<meta property="og:description" content="{{ $desc }}" />
+<meta property="og:type" content="{{ if $isPost }}article{{ else }}website{{ end }}" />
+{{ if $isPost -}}
+<meta property="article:published_time" content="{{ .Date.Format "2006-01-02T15:04:05Z07:00" }}" />
+<meta property="article:modified_time" content="{{ .Lastmod.Format "2006-01-02T15:04:05Z07:00" }}" />
+{{ end -}}
 {{ with site.Language.Locale }}<meta property="og:locale" content="{{ . }}" />{{ end }}
 {{/* og:image: prefer the page's own cover, fall back to the site logo image.
      Emit nothing at all when neither exists — an empty content="" is worse
@@ -46,3 +55,45 @@
 {{ with .Params.cover }}{{ $ogImage = . | absURL }}{{ end }}
 {{ if not $ogImage }}{{ with site.Params.about }}{{ with .logo_image }}{{ $ogImage = . | absURL }}{{ end }}{{ end }}{{ end }}
 {{ with $ogImage }}<meta property="og:image" content="{{ . }}" />{{ end }}
+<meta name="twitter:card" content="{{ if $ogImage }}summary_large_image{{ else }}summary{{ end }}">
+
+{{/* Structured data for search engines and AI crawlers. Built as a dict and
+     emitted via printf/safeHTML: jsonify already <-escapes angle
+     brackets, and safeHTML keeps html/template's script-context escaping from
+     mangling ready-made JSON. site.Params.author may be a plain string or the
+     {name, email} map Hugo's internal templates expect — accept both. */}}
+{{- $authorName := site.Title }}
+{{- with site.Params.author }}{{ if reflect.IsMap . }}{{ with .name }}{{ $authorName = . }}{{ end }}{{ else }}{{ $authorName = . }}{{ end }}{{ end }}
+{{- $author := dict "@type" "Person" "name" $authorName }}
+{{- $sameAs := slice }}
+{{- range site.Params.socialLinks }}{{ $sameAs = $sameAs | append .url }}{{ end }}
+{{- if $sameAs }}{{ $author = merge $author (dict "sameAs" $sameAs) }}{{ end }}
+{{- if $isPost }}
+{{- $ld := dict
+      "@context" "https://schema.org"
+      "@type" "BlogPosting"
+      "headline" .Title
+      "url" .Permalink
+      "datePublished" (.Date.Format "2006-01-02T15:04:05Z07:00")
+      "dateModified" (.Lastmod.Format "2006-01-02T15:04:05Z07:00")
+      "description" $desc
+      "inLanguage" (site.Language.Locale | default "en")
+      "author" $author }}
+{{- with $ogImage }}{{ $ld = merge $ld (dict "image" .) }}{{ end }}
+{{- with .GetTerms "tags" }}
+  {{- $kw := slice }}{{ range . }}{{ $kw = $kw | append .LinkTitle }}{{ end }}
+  {{- $ld = merge $ld (dict "keywords" $kw) }}
+{{- end }}
+{{ printf `<script type="application/ld+json">%s</script>` ($ld | jsonify) | safeHTML }}
+{{- end }}
+{{- if .IsHome }}
+{{- $ld := dict
+      "@context" "https://schema.org"
+      "@type" "WebSite"
+      "name" site.Title
+      "url" site.BaseURL
+      "description" $desc
+      "inLanguage" (site.Language.Locale | default "en")
+      "author" $author }}
+{{ printf `<script type="application/ld+json">%s</script>` ($ld | jsonify) | safeHTML }}
+{{- end }}
