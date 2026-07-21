@@ -1,11 +1,20 @@
 {{ define "main" }}
-    <header class="content__header">
-        <h1>{{ .Title | markdownify }}</h1>
-    </header>
-    <div class="content__body">
-        {{ .Content }}
-    </div>
-    <footer class="content__footer"></footer>
+    {{/* data-pagefind-body marks this as indexable content for Pagefind, if a
+         site chooses to use it. Its effect is to index only real pages and
+         skip section listings, which otherwise show up as near-duplicate
+         results echoing the titles they link to. Inert without Pagefind. */}}
+    <article data-pagefind-body>
+        <header class="content__header">
+            {{/* data-pagefind-meta names this as the result title; Pagefind
+                 otherwise takes the first h1 in the document, which is the
+                 site logo in the sidebar, not the page. */}}
+            <h1 data-pagefind-meta="title">{{ .Title | markdownify }}</h1>
+        </header>
+        <div class="content__body">
+            {{ .Content }}
+        </div>
+        <footer class="content__footer"></footer>
+    </article>
 {{ end }}
 
 {{define "aside" }}
