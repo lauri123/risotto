@@ -38,5 +38,11 @@
     <meta property="og:description" content="{{ .description }}"/> 
   {{ end }}
 {{ end }}
-{{ with .Site.LanguageCode}}<meta property="og:locale" content="{{ . }}" />{{ end }}
-{{ with .Site.Params.about }}<meta property="og:image" content="{{ with .logo_image }}{{ . | absURL }}{{ end }}" />{{ end }}
+{{ with site.Language.Locale }}<meta property="og:locale" content="{{ . }}" />{{ end }}
+{{/* og:image: prefer the page's own cover, fall back to the site logo image.
+     Emit nothing at all when neither exists — an empty content="" is worse
+     than no tag. */}}
+{{ $ogImage := "" }}
+{{ with .Params.cover }}{{ $ogImage = . | absURL }}{{ end }}
+{{ if not $ogImage }}{{ with site.Params.about }}{{ with .logo_image }}{{ $ogImage = . | absURL }}{{ end }}{{ end }}{{ end }}
+{{ with $ogImage }}<meta property="og:image" content="{{ . }}" />{{ end }}
