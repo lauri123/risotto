@@ -3,3 +3,10 @@ body {
     background-color: var(--bg);
     color: var(--fg);
 }
+
+/* Inline SVG icons (partials/icon.html) — baseline-align like the font icons
+   they replaced. Must live here, not as a style attribute: the site's CSP has
+   no 'unsafe-inline' in style-src, which silently blocks style attrs. */
+.icon {
+    vertical-align: -0.125em;
+}
