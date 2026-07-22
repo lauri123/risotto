@@ -11,16 +11,20 @@
 <meta charset="UTF-8"/>
 {{ if or .Site.Params.noindex .Params.noindex }}<meta name="robots" content="noindex" /> {{ end }}
 
-<!-- FontAwesome <https://fontawesome.com/> -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-
-<!-- Academicons <https://jpswalsh.github.io/academicons/> -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/academicons/1.9.4/css/academicons.min.css" integrity="sha512-IW0nhlW5MgNydsXJO40En2EoCkTTjZhI3yuODrZIc8cQ4h1XcF53PsqDHa09NqnkXuIe0Oiyyj171BqZFwISBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-
-<!-- risotto theme -->
-<link rel="stylesheet" href="{{ printf "css/palettes/%s.css" (.Site.Params.theme.palette | default "base16-dark") | absURL }}">
-<link rel="stylesheet" href="{{ "css/risotto.css" | absURL }}">
-<link rel="stylesheet" href="{{ "css/custom.css" | absURL }}">
+<!-- risotto theme CSS: one minified, fingerprinted bundle. Icons are inline
+     SVG (partials/icon.html) — no Font Awesome, no webfonts, nothing from a
+     CDN in the critical path. Order matters: the palette defines the colour
+     variables everything else consumes; custom.css stays last so a site can
+     override it (assets/css/custom.css in the site repo wins over the
+     theme's). -->
+{{ $sheets := slice }}
+{{ $palette := printf "css/palettes/%s.css" (.Site.Params.theme.palette | default "base16-dark") }}
+{{ range $p := slice $palette "css/colours.css" "css/typography.css" "css/layout.css" "css/header.css" "css/logo.css" "css/about.css" "css/footer.css" "css/risotto.css" "css/custom.css" }}
+  {{ with resources.Get $p }}{{ $sheets = $sheets | append . }}{{ else }}{{ warnf "head: stylesheet %q not found" $p }}{{ end }}
+{{ end }}
+{{ with $sheets | resources.Concat "css/bundle.css" | minify | fingerprint }}
+<link rel="stylesheet" href="{{ .RelPermalink }}">
+{{ end }}
 
 <!-- favicon -->
 {{ if os.FileExists "static/favicon.ico" }}<link rel="icon" href="{{ "favicon.ico" | absURL }}">{{ end }}
